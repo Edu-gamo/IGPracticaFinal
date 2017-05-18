@@ -1,0 +1,34 @@
+#version 330 core
+
+uniform float offsetX;
+uniform float time;
+
+// Input vertex data, different for all executions of this shader.
+layout(location = 0) in vec3 vertexPosition_modelspace;
+
+out vec3 vertexColor;
+out vec3 vertexPosition;
+
+void main(){
+
+	if(vertexPosition_modelspace.y <= 0){
+		float varX = abs(sin(time))*offsetX;
+		if(vertexPosition_modelspace.x > 0){
+			gl_Position.x = vertexPosition_modelspace.x + varX;
+		}else{
+			gl_Position.x = vertexPosition_modelspace.x - varX;
+		}
+	}else{
+		gl_Position.x = vertexPosition_modelspace.x;
+	}
+
+	gl_Position.yz = vertexPosition_modelspace.yz;
+    gl_Position.w = 1.0;
+
+    float blueColor = (vertexPosition_modelspace.y-(-0.5f))/(0.5f-(-0.5f));
+
+    vertexColor = vec3(0.0f, 1.0f, blueColor);
+    vertexPosition = gl_Position.xyz;
+
+}
+
