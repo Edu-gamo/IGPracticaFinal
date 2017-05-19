@@ -16,10 +16,11 @@
 #include "Object.h"
 #include "Material.h"
 #include "Light.h"
+#include "Model.h"
 
 using namespace glm;
 using namespace std;
-const GLint WIDTH = 800, HEIGHT = 600;
+const GLint WIDTH = 1600, HEIGHT = 600;
 bool WIDEFRAME = false;
 float textureChange = 0.0f;
 float rotationY = 0.0f;
@@ -31,7 +32,8 @@ Camera myCamera;
 
 int modelNum = 0;
 
-Object cube1, cube2;
+Object cube1;
+Model car;
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
@@ -97,13 +99,89 @@ int main() {
 	glFrontFace(GL_CW);
 
 	//cargamos los shader
-	//Shader myShader = Shader("./src/PhongVertex.vertexshader", "./src/PhongFragment.fragmentshader");
-	//Shader myShader = Shader("./src/DirectionalVertex.vertexshader", "./src/DirectionalFragment.fragmentshader");
-	//Shader myShader = Shader("./src/PuntualVertex.vertexshader", "./src/PuntualFragment.fragmentshader");
-	//Shader myShader = Shader("./src/FocalVertex.vertexshader", "./src/FocalFragment.fragmentshader");
-	//Shader myShader = Shader("./src/Phong2Vertex.vertexshader", "./src/Phong2Fragment.fragmentshader");
 	Shader myShader = Shader("./src/ShaderVertexPhongTexture.vertexshader", "./src/ShaderFragmentPhongTexture.fragmentshader");
-	Shader myShader2 = Shader("./src/SimpleCubeVertex.vertexshader", "./src/SimpleCubeFragment.fragmentshader");
+	Shader myShader2 = Shader("./src/textureVertex.vertexshader", "./src/textureFragment.fragmentshader");
+	Shader myShader3 = Shader("./src/3DVertex.vertexshader", "./src/3DFragment.fragmentshader");
+
+	// Definir el buffer de vertices
+	GLfloat vertices[] = {
+		// Positions          // Colors           // Texture Coords
+		0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f, // Top Right
+		0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f, // Bottom Right
+		-0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f, // Bottom Left
+		-0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f  // Top Left 
+	};
+
+	// Definir el EBO
+	GLuint IndexBufferObject[]{
+		0,1,2,
+		3,0,2 };
+
+	// Crear los VBO, VAO y EBO
+	GLuint VAO;
+	GLuint EBO;
+	GLuint VBO;
+
+	//reservar memoria para el VAO, VBO y EBO
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &EBO);
+
+	//Establecer el objeto
+	glBindVertexArray(VAO);
+	//Declarar el VBO y el EBO
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+
+	//Enlazar el buffer con openGL
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(IndexBufferObject), IndexBufferObject, GL_STATIC_DRAW);
+
+	//Establecer las propiedades de los vertices
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GL_FLOAT), (GLvoid*)0); //POSICION ARRAY, Nº VALORES, LARGO TOTAL VERTICES, VALOR QUE EMPIEZA EN EL VECTOR
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GL_FLOAT), (GLvoid*)3);
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GL_FLOAT), (GLvoid*)(6 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
+
+
+	//TEXTURAS
+	// Crear la textura
+	GLuint texture;
+
+	//Reservar memoria en openGL
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+
+	//parametros
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	float borderColor[] = { 1.0f, 1.0f, 0.0f, 1.0f };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	// Load and generate the texture
+	int width, height;
+	unsigned char* image = SOIL_load_image("./src/textures/suelo.png", &width, &height, 0, SOIL_LOAD_RGB);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+
+	//libera la imagen
+	SOIL_free_image_data(image);
+	
+	//libera el puntero de la textura
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	//liberar el buffer
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	//liberar el buffer de vertices
+	glBindVertexArray(0);
+
 
 	//Matriz Projection
 	float aspectRatio = screenWidth / screenHeight;
@@ -117,18 +195,18 @@ int main() {
 	vec3 cameraDir = normalize(cPos - cameraTarget);
 	myCamera = Camera(cPos, cameraDir, 0.05f, 60.0f, 3.0f);
 
-	cube1 = Object(vec3(1.0f), vec3(0.0f), vec3(0.0f), Object::cube);
-	traslationX = cube1.GetPosition().x;
-	traslationY = cube1.GetPosition().y;
-
-	cube2 = Object(vec3(0.1f), vec3(0.0f), vec3(0.0f, 0.0f, 1.0f), Object::cube);
+	//Cubo fondo
+	cube1 = Object(vec3(50.0f), vec3(0.0f), vec3(0.0f), Object::cube);
 
 	//Material
 	Material texMat = Material("./src/textures/difuso.png", "./src/textures/especular.png", 32.0f);
 
 	//Luz
 	Light directional = Light(vec3(0), vec3(1, -1, 0), vec3(0, 1, 0), vec3(0, 1, 0), vec3(0, 1, 0), Light::DIRECTIONAL, 0);
-	Light puntual1 = Light(cube2.GetPosition(), vec3(0), vec3(1, 0, 0), vec3(1, 0, 0), vec3(1, 0, 0), Light::POINT, 0);
+
+	//Modelo
+	car = Model("./src/models/Aventador/Avent.obj");
+	//car = Model("./src/models/nanosuit/nanosuit.obj");
 
 	//Bloquear cursor a la ventana
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -164,21 +242,56 @@ int main() {
 
 		directional.SetLight(&myShader, myCamera.cameraPos);
 
-		puntual1.SetAtt(1.0f, 0.7f, 1.8f);
-		puntual1.SetLight(&myShader, myCamera.cameraPos);
+		//Plano suelo
+		myShader2.USE();
+		glActiveTexture(GL_TEXTURE);
+		glBindTexture(GL_TEXTURE_2D, texture);
+		glUniform1i(glGetUniformLocation(myShader2.Program, "Texture1"), 1);
+		glUniformMatrix4fv(glGetUniformLocation(myShader2.Program, "projection"), 1, GL_FALSE, value_ptr(proj));
+		glUniformMatrix4fv(glGetUniformLocation(myShader2.Program, "view"), 1, GL_FALSE, value_ptr(myCamera.LookAt()));
+		glUniformMatrix4fv(glGetUniformLocation(myShader2.Program, "matriz"), 1, GL_FALSE, value_ptr(GenerateModelMatrix(vec3(50.0f), vec3(90.0f, 0.0f, 0.0f), vec3(0.0f, -5.0f, 0.0f))));
+
+
+		//Modelo
+		myShader3.USE();
+		glUniformMatrix4fv(glGetUniformLocation(myShader3.Program, "proj"), 1, GL_FALSE, value_ptr(proj));
+		glUniformMatrix4fv(glGetUniformLocation(myShader3.Program, "view"), 1, GL_FALSE, value_ptr(myCamera.LookAt()));
+		glUniformMatrix4fv(glGetUniformLocation(myShader3.Program, "matriz"), 1, GL_FALSE, value_ptr(GenerateModelMatrix(vec3(1.0f), vec3(0.0f), vec3(0.0f, -5.0f, 0.0f))));
+		
+		//Viewport 1
+		glViewport(0, 0, screenWidth / 2, screenHeight);
+
+		//Cubo fondo
+		myShader.USE();
 		cube1.Draw();
 
+		//Plano suelo
 		myShader2.USE();
-		glUniformMatrix4fv(glGetUniformLocation(myShader2.Program, "proj"), 1, GL_FALSE, value_ptr(proj));
-		glUniformMatrix4fv(glGetUniformLocation(myShader2.Program, "view"), 1, GL_FALSE, value_ptr(myCamera.LookAt()));
-		glUniformMatrix4fv(glGetUniformLocation(myShader2.Program, "matriz"), 1, GL_FALSE, value_ptr(cube2.GetModelMatrix()));
-		cube2.Draw();
+		printVAO(VAO);
 
-		
+		//Viewport 2
+		glViewport(screenWidth / 2, 0, screenWidth / 2, screenHeight);
+
+		//Cubo fondo
+		myShader.USE();
+		cube1.Draw();
+
+		//Plano suelo
+		myShader2.USE();
+		printVAO(VAO);
+
+		//Modelo
+		myShader3.USE();
+		car.Draw(myShader3, GL_FILL);
 
 		// Swap the screen buffers
 		glfwSwapBuffers(window);
 	}
+	
+	// liberar la memoria de los VAO, EBO y VBO
+	glDeleteVertexArrays(1, &VAO);
+	glDeleteBuffers(1, &VBO);
+	glDeleteBuffers(1, &EBO);
 
 	// Terminate GLFW, clearing any resources allocated by GLFW.
 	glfwDestroyWindow(window);
@@ -189,32 +302,13 @@ int main() {
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode) {
 	//TODO, comprobar que la tecla pulsada es escape para cerrar la aplicación y la tecla w para cambiar a modo widwframe
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) glfwSetWindowShouldClose(window, GL_TRUE);
-
-	//Trasladar cubo
-	if (key == GLFW_KEY_UP && (action == GLFW_PRESS || action == GLFW_REPEAT)) traslationY += 0.1f;
-	if (key == GLFW_KEY_DOWN && (action == GLFW_PRESS || action == GLFW_REPEAT)) traslationY -= 0.1f;
-	if (key == GLFW_KEY_RIGHT && (action == GLFW_PRESS || action == GLFW_REPEAT)) traslationX += 0.1f;
-	if (key == GLFW_KEY_LEFT && (action == GLFW_PRESS || action == GLFW_REPEAT)) traslationX -= 0.1f;
-
-	//Rotacion del cubo
-	if (key == GLFW_KEY_KP_8 && (action == GLFW_PRESS || action == GLFW_REPEAT)) rotationX -= 1.0f;
-	if (key == GLFW_KEY_KP_2 && (action == GLFW_PRESS || action == GLFW_REPEAT)) rotationX += 1.0f;
-	if (key == GLFW_KEY_KP_6 && (action == GLFW_PRESS || action == GLFW_REPEAT)) rotationY += 1.0f;
-	if (key == GLFW_KEY_KP_4 && (action == GLFW_PRESS || action == GLFW_REPEAT)) rotationY -= 1.0f;
 }
 
 void printVAO(GLuint VAO) {
 	glBindVertexArray(VAO);
-	if (WIDEFRAME) {
-		//pintar con lineas
-		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-		glDrawArrays(GL_TRIANGLES, 0, 36);
-	}
-	else {
-		//pintar con triangulos
-		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-		glDrawArrays(GL_TRIANGLES, 0, 36);
-	}
+	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	//glDrawArrays(GL_TRIANGLES, 0, 36);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
 }
 
