@@ -18,15 +18,13 @@
 #include "Light.h"
 #include "Model.h"
 
-#include <imgui.h>
-#include <imgui_impl_glfw_gl3.h>
-
 using namespace glm;
 using namespace std;
 const GLint WIDTH = 1600, HEIGHT = 600;
 Camera myCamera;
 
 int modelNum = 0;
+float gamma = 2.2f;
 
 Object cuboFondo;
 Model model;
@@ -159,8 +157,10 @@ int main() {
 	cuboFondo = Object(vec3(50.0f), vec3(0.0f), vec3(0.0f), Object::cube);
 
 	//Materiales
-	Material texMat = Material("./src/textures/difuso.png", "./src/textures/especular.png", 32.0f);
-	Material texMatSuelo = Material("./src/textures/suelo.png", "./src/textures/suelo.png", 32.0f);
+	Material texMat = Material("./src/textures/background.jpg", "./src/textures/background.jpg", 32.0f);
+	Material texMatSuelo = Material("./src/textures/floor.jpg", "./src/textures/floor.jpg", 32.0f);
+	Material texBox = Material("./src/textures/caja.jpg", "./src/textures/caja.jpg", 32.0f);
+
 	Material modelTex1 = Material("./src/models/nanosuit/arm_dif.png", "./src/models/nanosuit/arm_showroom_spec.png", 32.0f);
 	Material modelTex2 = Material("./src/models/nanosuit/body_dif.png", "./src/models/nanosuit/body_showroom_spec.png", 32.0f);
 	Material modelTex3 = Material("./src/models/nanosuit/glass_dif.png", "./src/models/nanosuit/glass_dif.png", 32.0f);
@@ -171,7 +171,7 @@ int main() {
 	//Luzes
 	Light directional = Light(vec3(0), vec3(1, -1, 0), vec3(0.2f, 0.2f, 0.2f), vec3(0.2f, 0.2f, 0.2f), vec3(0.2f, 0.2f, 0.2f), Light::DIRECTIONAL, 0);
 
-	Object luz1 = Object(vec3(1.0f), vec3(0.0f), vec3(0.0f, 15.0f, 0.0f), Object::cube);
+	Object luz1 = Object(vec3(1.0f), vec3(0.0f), vec3(-10.0f, 15.0f, 10.0f), Object::cube);
 	Light puntual1 = Light(luz1.GetPosition(), vec3(0.0f), vec3(1.0f, 0.0f, 0.0f), vec3(1.0f, 0.0f, 0.0f), vec3(1.0f, 0.0f, 0.0f), Light::POINT, 0);
 	Object luz2 = Object(vec3(1.0f), vec3(0.0f), vec3(10.0f, 15.0f, 10.0f), Object::cube);
 	Light puntual2 = Light(luz2.GetPosition(), vec3(0.0f), vec3(0.0f, 1.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), Light::POINT, 1);
@@ -266,9 +266,9 @@ int main() {
 
 		//Cubos
 		for (int i = 0; i < 5; i++) {
-			texMat.ActivateTextures();
-			texMat.SetMaterial(&myShader);
-			texMat.SetShininess(&myShader);
+			texBox.ActivateTextures();
+			texBox.SetMaterial(&myShader);
+			texBox.SetShininess(&myShader);
 			glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "model"), 1, GL_FALSE, value_ptr(cubes[i].GetModelMatrix()));
 			cubes[i].Draw();
 		}
@@ -301,55 +301,84 @@ int main() {
 		////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		glViewport(screenWidth / 2, 0, screenWidth / 2, screenHeight);
 
-		myShader.USE();
-		directional.SetLight(&myShader, myCamera.cameraPos);
-		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "projection"), 1, GL_FALSE, value_ptr(proj));
-		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "view"), 1, GL_FALSE, value_ptr(myCamera.LookAt()));
+		shaderLuzes.USE();
+		glUniformMatrix4fv(glGetUniformLocation(shaderLuzes.Program, "proj"), 1, GL_FALSE, value_ptr(proj));
+		glUniformMatrix4fv(glGetUniformLocation(shaderLuzes.Program, "view"), 1, GL_FALSE, value_ptr(myCamera.LookAt()));
+		glUniformMatrix4fv(glGetUniformLocation(shaderLuzes.Program, "matriz"), 1, GL_FALSE, value_ptr(luz1.GetModelMatrix()));
+		glUniform3f(glGetUniformLocation(shaderLuzes.Program, "col"), puntual1.GetColor().x, puntual1.GetColor().y, puntual1.GetColor().z);
+		luz1.Draw();
+		glUniformMatrix4fv(glGetUniformLocation(shaderLuzes.Program, "matriz"), 1, GL_FALSE, value_ptr(luz2.GetModelMatrix()));
+		glUniform3f(glGetUniformLocation(shaderLuzes.Program, "col"), puntual2.GetColor().x, puntual2.GetColor().y, puntual2.GetColor().z);
+		luz2.Draw();
+		glUniformMatrix4fv(glGetUniformLocation(shaderLuzes.Program, "matriz"), 1, GL_FALSE, value_ptr(luz3.GetModelMatrix()));
+		glUniform3f(glGetUniformLocation(shaderLuzes.Program, "col"), focal1.GetColor().x, focal1.GetColor().y, focal1.GetColor().z);
+		luz3.Draw();
+		glUniformMatrix4fv(glGetUniformLocation(shaderLuzes.Program, "matriz"), 1, GL_FALSE, value_ptr(luz4.GetModelMatrix()));
+		glUniform3f(glGetUniformLocation(shaderLuzes.Program, "col"), focal2.GetColor().x, focal2.GetColor().y, focal2.GetColor().z);
+		luz4.Draw();
 
+		myShaderGamma.USE();
+		directional.SetLight(&myShaderGamma, myCamera.cameraPos);
+
+		puntual1.SetAtt(1.0f, 0.09f, 0.032f);
+		puntual1.SetLight(&myShaderGamma, myCamera.cameraPos);
+		puntual2.SetAtt(1.0f, 0.09f, 0.032f);
+		puntual2.SetLight(&myShaderGamma, myCamera.cameraPos);
+
+		focal1.SetAtt(1.0f, 0.09f, 0.032f);
+		focal1.SetAperture(radians(5.0f), radians(10.0f));
+		focal1.SetLight(&myShaderGamma, myCamera.cameraPos);
+		focal2.SetAtt(1.0f, 0.09f, 0.032f);
+		focal2.SetAperture(radians(5.0f), radians(10.0f));
+		focal2.SetLight(&myShaderGamma, myCamera.cameraPos);
+		glUniformMatrix4fv(glGetUniformLocation(myShaderGamma.Program, "projection"), 1, GL_FALSE, value_ptr(proj));
+		glUniformMatrix4fv(glGetUniformLocation(myShaderGamma.Program, "view"), 1, GL_FALSE, value_ptr(myCamera.LookAt()));
+		glUniform1f(glGetUniformLocation(myShaderGamma.Program, "gamma"), gamma);
+		
 		//Cubo fondo
 		texMat.ActivateTextures();
-		texMat.SetMaterial(&myShader);
-		texMat.SetShininess(&myShader);
-		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "model"), 1, GL_FALSE, value_ptr(cuboFondo.GetModelMatrix()));
+		texMat.SetMaterial(&myShaderGamma);
+		texMat.SetShininess(&myShaderGamma);
+		glUniformMatrix4fv(glGetUniformLocation(myShaderGamma.Program, "model"), 1, GL_FALSE, value_ptr(cuboFondo.GetModelMatrix()));
 		cuboFondo.Draw();
 
 		//Plano suelo
 		texMatSuelo.ActivateTextures();
-		texMatSuelo.SetMaterial(&myShader);
-		texMatSuelo.SetShininess(&myShader);
-		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "model"), 1, GL_FALSE, value_ptr(GenerateModelMatrix(vec3(50.0f), vec3(90.0f, 0.0f, 0.0f), vec3(0.0f, -5.0f, 0.0f))));
+		texMatSuelo.SetMaterial(&myShaderGamma);
+		texMatSuelo.SetShininess(&myShaderGamma);
+		glUniformMatrix4fv(glGetUniformLocation(myShaderGamma.Program, "model"), 1, GL_FALSE, value_ptr(GenerateModelMatrix(vec3(50.0f), vec3(90.0f, 0.0f, 0.0f), vec3(0.0f, -5.0f, 0.0f))));
 		printVAO(VAO);
 
 		//Cubos
 		for (int i = 0; i < 5; i++) {
-			texMat.ActivateTextures();
-			texMat.SetMaterial(&myShader);
-			texMat.SetShininess(&myShader);
-			glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "model"), 1, GL_FALSE, value_ptr(cubes[i].GetModelMatrix()));
+			texBox.ActivateTextures();
+			texBox.SetMaterial(&myShaderGamma);
+			texBox.SetShininess(&myShaderGamma);
+			glUniformMatrix4fv(glGetUniformLocation(myShaderGamma.Program, "model"), 1, GL_FALSE, value_ptr(cubes[i].GetModelMatrix()));
 			cubes[i].Draw();
 		}
 
 		//Modelo
 		modelTex1.ActivateTextures();
-		modelTex1.SetMaterial(&myShader);
-		modelTex1.SetShininess(&myShader);
+		modelTex1.SetMaterial(&myShaderGamma);
+		modelTex1.SetShininess(&myShaderGamma);
 		modelTex2.ActivateTextures();
-		modelTex2.SetMaterial(&myShader);
-		modelTex2.SetShininess(&myShader);
+		modelTex2.SetMaterial(&myShaderGamma);
+		modelTex2.SetShininess(&myShaderGamma);
 		modelTex3.ActivateTextures();
-		modelTex3.SetMaterial(&myShader);
-		modelTex3.SetShininess(&myShader);
+		modelTex3.SetMaterial(&myShaderGamma);
+		modelTex3.SetShininess(&myShaderGamma);
 		modelTex4.ActivateTextures();
-		modelTex4.SetMaterial(&myShader);
-		modelTex4.SetShininess(&myShader);
+		modelTex4.SetMaterial(&myShaderGamma);
+		modelTex4.SetShininess(&myShaderGamma);
 		modelTex5.ActivateTextures();
-		modelTex5.SetMaterial(&myShader);
-		modelTex5.SetShininess(&myShader);
+		modelTex5.SetMaterial(&myShaderGamma);
+		modelTex5.SetShininess(&myShaderGamma);
 		modelTex6.ActivateTextures();
-		modelTex6.SetMaterial(&myShader);
-		modelTex6.SetShininess(&myShader);
-		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "model"), 1, GL_FALSE, value_ptr(GenerateModelMatrix(vec3(1.0f), vec3(0.0f), vec3(0.0f, -5.0f, 0.0f))));
-		model.Draw(myShader, GL_FILL);
+		modelTex6.SetMaterial(&myShaderGamma);
+		modelTex6.SetShininess(&myShaderGamma);
+		glUniformMatrix4fv(glGetUniformLocation(myShaderGamma.Program, "model"), 1, GL_FALSE, value_ptr(GenerateModelMatrix(vec3(1.0f), vec3(0.0f), vec3(0.0f, -5.0f, 0.0f))));
+		model.Draw(myShaderGamma, GL_FILL);
 		//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 		// Swap the screen buffers
@@ -370,6 +399,9 @@ int main() {
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode) {
 	//TODO, comprobar que la tecla pulsada es escape para cerrar la aplicación y la tecla w para cambiar a modo widwframe
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) glfwSetWindowShouldClose(window, GL_TRUE);
+	if (key == GLFW_KEY_KP_ADD && (action == GLFW_PRESS || action == GLFW_REPEAT)) if (gamma < 3.0f) gamma += 0.1f;
+	if (key == GLFW_KEY_KP_SUBTRACT && (action == GLFW_PRESS || action == GLFW_REPEAT)) if(gamma > 0.5f) gamma -= 0.1f;
+	if (key == GLFW_KEY_KP_ENTER && action == GLFW_PRESS) gamma = 2.2f;
 }
 
 void printVAO(GLuint VAO) {

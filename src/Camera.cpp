@@ -7,9 +7,10 @@ Camera::Camera() {
 
 Camera::Camera(vec3 position, vec3 direction, GLfloat sensitivity, GLfloat fov, GLfloat speed) {
 	this->cameraPos = position;
-	this->cameraFront = vec3(0.0f, 0.0f, -1.0f);
+	//this->cameraFront = vec3(0.0f, 0.0f, -1.0f);
+	this->cameraFront = normalize(-direction);
 	vec3 up = vec3(0.0f, 1.0f, 0.0f);
-	vec3 cameraRight = normalize(cross(up, direction));
+	this->cameraRight = normalize(cross(up, direction));
 	this->cameraUp = cross(direction, cameraRight);
 	this->Sensitivity = sensitivity;
 	this->FOV = fov;
@@ -65,7 +66,26 @@ void Camera::MouseScroll(GLFWwindow* window, double yScroll) {
 }
 
 mat4 Camera::LookAt() {
-	return lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+
+	vec3 f(normalize((cameraPos + cameraFront) - cameraPos));
+	vec3 s(normalize(cross(f, cameraUp)));
+	vec3 u(cross(s, f));
+
+	mat4 Result(1);
+	Result[0][0] = s.x;
+	Result[1][0] = s.y;
+	Result[2][0] = s.z;
+	Result[0][1] = u.x;
+	Result[1][1] = u.y;
+	Result[2][1] = u.z;
+	Result[0][2] = -f.x;
+	Result[1][2] = -f.y;
+	Result[2][2] = -f.z;
+	Result[3][0] = -dot(s, cameraPos);
+	Result[3][1] = -dot(u, cameraPos);
+	Result[3][2] = dot(f, cameraPos);
+	return Result;
+
 }
 
 GLfloat Camera::GetFOV() {

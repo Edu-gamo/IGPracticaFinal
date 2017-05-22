@@ -11,6 +11,7 @@ public:
 	vec3 cameraPos;
 	vec3 cameraFront;
 	vec3 cameraUp;
+	vec3 cameraRight;
 	GLfloat Deltatime;
 	GLfloat Lastframe;
 	GLfloat LastMx;
