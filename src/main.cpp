@@ -205,8 +205,18 @@ int main() {
 	Light directional = Light(vec3(0), vec3(1, -1, 0), vec3(0, 1, 0), vec3(0, 1, 0), vec3(0, 1, 0), Light::DIRECTIONAL, 0);
 
 	//Modelo
-	car = Model("./src/models/Aventador/Avent.obj");
+	//car = Model("./src/models/Aventador/Avent.obj");
 	//car = Model("./src/models/nanosuit/nanosuit.obj");
+
+	//Cubos
+	Object cubes[5];
+	for (int i = 0; i < 5; i++) {
+		//cubes[i] = Object(vec3(50.0f), vec3(0.0f), vec3(0.0f), Object::cube);
+		vec3 scal = vec3(rand() % 4 + 5);
+		vec3 rot = vec3(0.0f, rand() % 90, 0.0f);
+		vec3 pos = vec3(rand() % 50 - 25, 0.0f, rand() % 50 - 25);
+		cubes[i] = Object(scal, rot, pos, Object::cube);
+	}
 
 	//Bloquear cursor a la ventana
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -236,8 +246,6 @@ int main() {
 		myCamera.DoMovement(window);
 		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "view"), 1, GL_FALSE, value_ptr(myCamera.LookAt()));
 
-		cube1.Move(vec3(traslationX, traslationY, 0.0f));
-		cube1.Rotate(vec3(rotationX, rotationY, 0.0f));
 		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "model"), 1, GL_FALSE, value_ptr(cube1.GetModelMatrix()));
 
 		directional.SetLight(&myShader, myCamera.cameraPos);
@@ -256,7 +264,7 @@ int main() {
 		myShader3.USE();
 		glUniformMatrix4fv(glGetUniformLocation(myShader3.Program, "proj"), 1, GL_FALSE, value_ptr(proj));
 		glUniformMatrix4fv(glGetUniformLocation(myShader3.Program, "view"), 1, GL_FALSE, value_ptr(myCamera.LookAt()));
-		glUniformMatrix4fv(glGetUniformLocation(myShader3.Program, "matriz"), 1, GL_FALSE, value_ptr(GenerateModelMatrix(vec3(1.0f), vec3(0.0f), vec3(0.0f, -5.0f, 0.0f))));
+		//glUniformMatrix4fv(glGetUniformLocation(myShader3.Program, "matriz"), 1, GL_FALSE, value_ptr(GenerateModelMatrix(vec3(1.0f), vec3(0.0f), vec3(0.0f, -5.0f, 0.0f))));
 		
 		//Viewport 1
 		glViewport(0, 0, screenWidth / 2, screenHeight);
@@ -268,6 +276,13 @@ int main() {
 		//Plano suelo
 		myShader2.USE();
 		printVAO(VAO);
+
+		//Cubos
+		for (int i = 0; i < 5; i++) {
+			myShader3.USE();
+			glUniformMatrix4fv(glGetUniformLocation(myShader3.Program, "matriz"), 1, GL_FALSE, value_ptr(cubes[i].GetModelMatrix()));
+			cubes[i].Draw();
+		}
 
 		//Viewport 2
 		glViewport(screenWidth / 2, 0, screenWidth / 2, screenHeight);
@@ -281,8 +296,8 @@ int main() {
 		printVAO(VAO);
 
 		//Modelo
-		myShader3.USE();
-		car.Draw(myShader3, GL_FILL);
+		/*myShader3.USE();
+		car.Draw(myShader3, GL_FILL);*/
 
 		// Swap the screen buffers
 		glfwSwapBuffers(window);
