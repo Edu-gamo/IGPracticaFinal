@@ -18,22 +18,18 @@
 #include "Light.h"
 #include "Model.h"
 
+#include <imgui.h>
+#include <imgui_impl_glfw_gl3.h>
+
 using namespace glm;
 using namespace std;
 const GLint WIDTH = 1600, HEIGHT = 600;
-bool WIDEFRAME = false;
-float textureChange = 0.0f;
-float rotationY = 0.0f;
-float rotationX = 0.0f;
-float traslationY = 0.0f;
-float traslationX = 0.0f;
-float autoRotation = false;
 Camera myCamera;
 
 int modelNum = 0;
 
-Object cube1;
-Model car;
+Object cuboFondo;
+Model model;
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
@@ -100,8 +96,8 @@ int main() {
 
 	//cargamos los shader
 	Shader myShader = Shader("./src/ShaderVertexPhongTexture.vertexshader", "./src/ShaderFragmentPhongTexture.fragmentshader");
-	Shader myShader2 = Shader("./src/textureVertex.vertexshader", "./src/textureFragment.fragmentshader");
-	Shader myShader3 = Shader("./src/3DVertex.vertexshader", "./src/3DFragment.fragmentshader");
+	Shader myShaderGamma = Shader("./src/ShaderVertexPhongTextureGC.vertexshader", "./src/ShaderFragmentPhongTextureGC.fragmentshader");
+	Shader shaderLuzes = Shader("./src/SimpleCubeVertex.vertexshader", "./src/SimpleCubeFragment.fragmentshader");
 
 	// Definir el buffer de vertices
 	GLfloat vertices[] = {
@@ -148,46 +144,10 @@ int main() {
 	glEnableVertexAttribArray(2);
 
 
-	//TEXTURAS
-	// Crear la textura
-	GLuint texture;
-
-	//Reservar memoria en openGL
-	glGenTextures(1, &texture);
-	glBindTexture(GL_TEXTURE_2D, texture);
-
-	//parametros
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-	float borderColor[] = { 1.0f, 1.0f, 0.0f, 1.0f };
-	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	// Load and generate the texture
-	int width, height;
-	unsigned char* image = SOIL_load_image("./src/textures/suelo.png", &width, &height, 0, SOIL_LOAD_RGB);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-
-	//libera la imagen
-	SOIL_free_image_data(image);
-	
-	//libera el puntero de la textura
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	//liberar el buffer
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	//liberar el buffer de vertices
-	glBindVertexArray(0);
-
-
 	//Matriz Projection
 	float aspectRatio = screenWidth / screenHeight;
 	if (screenWidth < screenHeight) aspectRatio = screenHeight / screenWidth;
 	mat4 proj;
-
 
 	//Camara
 	vec3 cPos = vec3(0.0f, 0.0f, 3.0f);
@@ -196,17 +156,33 @@ int main() {
 	myCamera = Camera(cPos, cameraDir, 0.05f, 60.0f, 3.0f);
 
 	//Cubo fondo
-	cube1 = Object(vec3(50.0f), vec3(0.0f), vec3(0.0f), Object::cube);
+	cuboFondo = Object(vec3(50.0f), vec3(0.0f), vec3(0.0f), Object::cube);
 
-	//Material
+	//Materiales
 	Material texMat = Material("./src/textures/difuso.png", "./src/textures/especular.png", 32.0f);
+	Material texMatSuelo = Material("./src/textures/suelo.png", "./src/textures/suelo.png", 32.0f);
+	Material modelTex1 = Material("./src/models/nanosuit/arm_dif.png", "./src/models/nanosuit/arm_showroom_spec.png", 32.0f);
+	Material modelTex2 = Material("./src/models/nanosuit/body_dif.png", "./src/models/nanosuit/body_showroom_spec.png", 32.0f);
+	Material modelTex3 = Material("./src/models/nanosuit/glass_dif.png", "./src/models/nanosuit/glass_dif.png", 32.0f);
+	Material modelTex4 = Material("./src/models/nanosuit/hand_dif.png", "./src/models/nanosuit/hand_showroom_spec.png", 32.0f);
+	Material modelTex5 = Material("./src/models/nanosuit/helmet_diff.png", "./src/models/nanosuit/helmet_showroom_spec.png", 32.0f);
+	Material modelTex6 = Material("./src/models/nanosuit/leg_dif.png", "./src/models/nanosuit/leg_showroom_spec.png", 32.0f);
 
-	//Luz
-	Light directional = Light(vec3(0), vec3(1, -1, 0), vec3(0, 1, 0), vec3(0, 1, 0), vec3(0, 1, 0), Light::DIRECTIONAL, 0);
+	//Luzes
+	Light directional = Light(vec3(0), vec3(1, -1, 0), vec3(0.2f, 0.2f, 0.2f), vec3(0.2f, 0.2f, 0.2f), vec3(0.2f, 0.2f, 0.2f), Light::DIRECTIONAL, 0);
+
+	Object luz1 = Object(vec3(1.0f), vec3(0.0f), vec3(0.0f, 15.0f, 0.0f), Object::cube);
+	Light puntual1 = Light(luz1.GetPosition(), vec3(0.0f), vec3(1.0f, 0.0f, 0.0f), vec3(1.0f, 0.0f, 0.0f), vec3(1.0f, 0.0f, 0.0f), Light::POINT, 0);
+	Object luz2 = Object(vec3(1.0f), vec3(0.0f), vec3(10.0f, 15.0f, 10.0f), Object::cube);
+	Light puntual2 = Light(luz2.GetPosition(), vec3(0.0f), vec3(0.0f, 1.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), Light::POINT, 1);
+
+	Object luz3 = Object(vec3(1.0f), vec3(0.0f), vec3(10.0f, 15.0f, -10.0f), Object::cube);
+	Light focal1 = Light(luz3.GetPosition(), vec3(0.0f, 1.0f, 0.0f), vec3(0.0f, 0.0f, 1.0f), vec3(0.0f, 0.0f, 1.0f), vec3(0.0f, 0.0f, 1.0f), Light::SPOT, 0);
+	Object luz4 = Object(vec3(1.0f), vec3(0.0f), vec3(-10.0f, 15.0f, -10.0f), Object::cube);
+	Light focal2 = Light(luz4.GetPosition(), vec3(0.0f, 1.0f, 0.0f), vec3(0.0f, 1.0f, 1.0f), vec3(0.0f, 1.0f, 1.0f), vec3(0.0f, 1.0f, 1.0f), Light::SPOT, 1);
 
 	//Modelo
-	//car = Model("./src/models/Aventador/Avent.obj");
-	//car = Model("./src/models/nanosuit/nanosuit.obj");
+	model = Model("./src/models/nanosuit/nanosuit.obj");
 
 	//Cubos
 	Object cubes[5];
@@ -214,7 +190,7 @@ int main() {
 		//cubes[i] = Object(vec3(50.0f), vec3(0.0f), vec3(0.0f), Object::cube);
 		vec3 scal = vec3(rand() % 4 + 5);
 		vec3 rot = vec3(0.0f, rand() % 90, 0.0f);
-		vec3 pos = vec3(rand() % 50 - 25, 0.0f, rand() % 50 - 25);
+		vec3 pos = vec3(rand() % 50 - 25, -5.0f + scal.y/2, rand() % 50 - 25);
 		cubes[i] = Object(scal, rot, pos, Object::cube);
 	}
 
@@ -233,71 +209,148 @@ int main() {
 
 		glClearColor(0.0, 0.0, 0.0, 1.0);
 
-		myShader.USE();
+		//Camara
+		myCamera.DoMovement(window);
+		proj = perspective(radians(myCamera.GetFOV()), aspectRatio, 0.1f, 100.0f);
 
+		//Viewport 1
+		//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+		glViewport(0, 0, screenWidth / 2, screenHeight);
+
+		shaderLuzes.USE();
+		glUniformMatrix4fv(glGetUniformLocation(shaderLuzes.Program, "proj"), 1, GL_FALSE, value_ptr(proj));
+		glUniformMatrix4fv(glGetUniformLocation(shaderLuzes.Program, "view"), 1, GL_FALSE, value_ptr(myCamera.LookAt()));
+		glUniformMatrix4fv(glGetUniformLocation(shaderLuzes.Program, "matriz"), 1, GL_FALSE, value_ptr(luz1.GetModelMatrix()));
+		glUniform3f(glGetUniformLocation(shaderLuzes.Program, "col"), puntual1.GetColor().x, puntual1.GetColor().y, puntual1.GetColor().z);
+		luz1.Draw();
+		glUniformMatrix4fv(glGetUniformLocation(shaderLuzes.Program, "matriz"), 1, GL_FALSE, value_ptr(luz2.GetModelMatrix()));
+		glUniform3f(glGetUniformLocation(shaderLuzes.Program, "col"), puntual2.GetColor().x, puntual2.GetColor().y, puntual2.GetColor().z);
+		luz2.Draw();
+		glUniformMatrix4fv(glGetUniformLocation(shaderLuzes.Program, "matriz"), 1, GL_FALSE, value_ptr(luz3.GetModelMatrix()));
+		glUniform3f(glGetUniformLocation(shaderLuzes.Program, "col"), focal1.GetColor().x, focal1.GetColor().y, focal1.GetColor().z);
+		luz3.Draw();
+		glUniformMatrix4fv(glGetUniformLocation(shaderLuzes.Program, "matriz"), 1, GL_FALSE, value_ptr(luz4.GetModelMatrix()));
+		glUniform3f(glGetUniformLocation(shaderLuzes.Program, "col"), focal2.GetColor().x, focal2.GetColor().y, focal2.GetColor().z);
+		luz4.Draw();
+
+		myShader.USE();
+		directional.SetLight(&myShader, myCamera.cameraPos);
+
+		puntual1.SetAtt(1.0f, 0.09f, 0.032f);
+		puntual1.SetLight(&myShader, myCamera.cameraPos);
+		puntual2.SetAtt(1.0f, 0.09f, 0.032f);
+		puntual2.SetLight(&myShader, myCamera.cameraPos);
+
+		focal1.SetAtt(1.0f, 0.09f, 0.032f);
+		focal1.SetAperture(radians(5.0f), radians(10.0f));
+		focal1.SetLight(&myShader, myCamera.cameraPos);
+		focal2.SetAtt(1.0f, 0.09f, 0.032f);
+		focal2.SetAperture(radians(5.0f), radians(10.0f));
+		focal2.SetLight(&myShader, myCamera.cameraPos);
+		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "projection"), 1, GL_FALSE, value_ptr(proj));
+		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "view"), 1, GL_FALSE, value_ptr(myCamera.LookAt()));
+
+		//Cubo fondo
 		texMat.ActivateTextures();
 		texMat.SetMaterial(&myShader);
 		texMat.SetShininess(&myShader);
-
-		proj = perspective(radians(myCamera.GetFOV()), aspectRatio, 0.1f, 100.0f);
-		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "projection"), 1, GL_FALSE, value_ptr(proj));
-
-		//Camara
-		myCamera.DoMovement(window);
-		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "view"), 1, GL_FALSE, value_ptr(myCamera.LookAt()));
-
-		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "model"), 1, GL_FALSE, value_ptr(cube1.GetModelMatrix()));
-
-		directional.SetLight(&myShader, myCamera.cameraPos);
+		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "model"), 1, GL_FALSE, value_ptr(cuboFondo.GetModelMatrix()));
+		cuboFondo.Draw();
 
 		//Plano suelo
-		myShader2.USE();
-		glActiveTexture(GL_TEXTURE);
-		glBindTexture(GL_TEXTURE_2D, texture);
-		glUniform1i(glGetUniformLocation(myShader2.Program, "Texture1"), 1);
-		glUniformMatrix4fv(glGetUniformLocation(myShader2.Program, "projection"), 1, GL_FALSE, value_ptr(proj));
-		glUniformMatrix4fv(glGetUniformLocation(myShader2.Program, "view"), 1, GL_FALSE, value_ptr(myCamera.LookAt()));
-		glUniformMatrix4fv(glGetUniformLocation(myShader2.Program, "matriz"), 1, GL_FALSE, value_ptr(GenerateModelMatrix(vec3(50.0f), vec3(90.0f, 0.0f, 0.0f), vec3(0.0f, -5.0f, 0.0f))));
-
-
-		//Modelo
-		myShader3.USE();
-		glUniformMatrix4fv(glGetUniformLocation(myShader3.Program, "proj"), 1, GL_FALSE, value_ptr(proj));
-		glUniformMatrix4fv(glGetUniformLocation(myShader3.Program, "view"), 1, GL_FALSE, value_ptr(myCamera.LookAt()));
-		//glUniformMatrix4fv(glGetUniformLocation(myShader3.Program, "matriz"), 1, GL_FALSE, value_ptr(GenerateModelMatrix(vec3(1.0f), vec3(0.0f), vec3(0.0f, -5.0f, 0.0f))));
-		
-		//Viewport 1
-		glViewport(0, 0, screenWidth / 2, screenHeight);
-
-		//Cubo fondo
-		myShader.USE();
-		cube1.Draw();
-
-		//Plano suelo
-		myShader2.USE();
+		texMatSuelo.ActivateTextures();
+		texMatSuelo.SetMaterial(&myShader);
+		texMatSuelo.SetShininess(&myShader);
+		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "model"), 1, GL_FALSE, value_ptr(GenerateModelMatrix(vec3(50.0f), vec3(90.0f, 0.0f, 0.0f), vec3(0.0f, -5.0f, 0.0f))));
 		printVAO(VAO);
 
 		//Cubos
 		for (int i = 0; i < 5; i++) {
-			myShader3.USE();
-			glUniformMatrix4fv(glGetUniformLocation(myShader3.Program, "matriz"), 1, GL_FALSE, value_ptr(cubes[i].GetModelMatrix()));
+			texMat.ActivateTextures();
+			texMat.SetMaterial(&myShader);
+			texMat.SetShininess(&myShader);
+			glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "model"), 1, GL_FALSE, value_ptr(cubes[i].GetModelMatrix()));
 			cubes[i].Draw();
 		}
 
+		//Modelo
+		modelTex1.ActivateTextures();
+		modelTex1.SetMaterial(&myShader);
+		modelTex1.SetShininess(&myShader);
+		modelTex2.ActivateTextures();
+		modelTex2.SetMaterial(&myShader);
+		modelTex2.SetShininess(&myShader);
+		modelTex3.ActivateTextures();
+		modelTex3.SetMaterial(&myShader);
+		modelTex3.SetShininess(&myShader);
+		modelTex4.ActivateTextures();
+		modelTex4.SetMaterial(&myShader);
+		modelTex4.SetShininess(&myShader);
+		modelTex5.ActivateTextures();
+		modelTex5.SetMaterial(&myShader);
+		modelTex5.SetShininess(&myShader);
+		modelTex6.ActivateTextures();
+		modelTex6.SetMaterial(&myShader);
+		modelTex6.SetShininess(&myShader);
+		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "model"), 1, GL_FALSE, value_ptr(GenerateModelMatrix(vec3(1.0f), vec3(0.0f), vec3(0.0f, -5.0f, 0.0f))));
+		model.Draw(myShader, GL_FILL);
+		//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+		
 		//Viewport 2
+		////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		glViewport(screenWidth / 2, 0, screenWidth / 2, screenHeight);
 
-		//Cubo fondo
 		myShader.USE();
-		cube1.Draw();
+		directional.SetLight(&myShader, myCamera.cameraPos);
+		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "projection"), 1, GL_FALSE, value_ptr(proj));
+		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "view"), 1, GL_FALSE, value_ptr(myCamera.LookAt()));
+
+		//Cubo fondo
+		texMat.ActivateTextures();
+		texMat.SetMaterial(&myShader);
+		texMat.SetShininess(&myShader);
+		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "model"), 1, GL_FALSE, value_ptr(cuboFondo.GetModelMatrix()));
+		cuboFondo.Draw();
 
 		//Plano suelo
-		myShader2.USE();
+		texMatSuelo.ActivateTextures();
+		texMatSuelo.SetMaterial(&myShader);
+		texMatSuelo.SetShininess(&myShader);
+		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "model"), 1, GL_FALSE, value_ptr(GenerateModelMatrix(vec3(50.0f), vec3(90.0f, 0.0f, 0.0f), vec3(0.0f, -5.0f, 0.0f))));
 		printVAO(VAO);
 
+		//Cubos
+		for (int i = 0; i < 5; i++) {
+			texMat.ActivateTextures();
+			texMat.SetMaterial(&myShader);
+			texMat.SetShininess(&myShader);
+			glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "model"), 1, GL_FALSE, value_ptr(cubes[i].GetModelMatrix()));
+			cubes[i].Draw();
+		}
+
 		//Modelo
-		/*myShader3.USE();
-		car.Draw(myShader3, GL_FILL);*/
+		modelTex1.ActivateTextures();
+		modelTex1.SetMaterial(&myShader);
+		modelTex1.SetShininess(&myShader);
+		modelTex2.ActivateTextures();
+		modelTex2.SetMaterial(&myShader);
+		modelTex2.SetShininess(&myShader);
+		modelTex3.ActivateTextures();
+		modelTex3.SetMaterial(&myShader);
+		modelTex3.SetShininess(&myShader);
+		modelTex4.ActivateTextures();
+		modelTex4.SetMaterial(&myShader);
+		modelTex4.SetShininess(&myShader);
+		modelTex5.ActivateTextures();
+		modelTex5.SetMaterial(&myShader);
+		modelTex5.SetShininess(&myShader);
+		modelTex6.ActivateTextures();
+		modelTex6.SetMaterial(&myShader);
+		modelTex6.SetShininess(&myShader);
+		glUniformMatrix4fv(glGetUniformLocation(myShader.Program, "model"), 1, GL_FALSE, value_ptr(GenerateModelMatrix(vec3(1.0f), vec3(0.0f), vec3(0.0f, -5.0f, 0.0f))));
+		model.Draw(myShader, GL_FILL);
+		//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 		// Swap the screen buffers
 		glfwSwapBuffers(window);
